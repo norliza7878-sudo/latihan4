@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Pengurusan Pelan</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+:root{--navy:#0f2747;--blue:#1769aa;--green:#18864b;--orange:#e98b20;--red:#c93636;--bg:#f4f7fb;--card:#fff;--text:#1c2b39;--muted:#718096;--border:#e4eaf1}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+.header{background:linear-gradient(135deg,#0f2747,#1769aa);color:#fff;padding:24px 30px;display:flex;justify-content:space-between;align-items:center;gap:20px}
+.title h1{margin:0;font-size:25px}.title p{margin:6px 0 0;opacity:.85}.actions{display:flex;gap:10px;align-items:center}
+button,.select,.search{border:1px solid var(--border);background:#fff;color:var(--text);padding:10px 13px;border-radius:9px;font-size:14px;cursor:pointer}
+.header button{border:0}.container{max-width:1500px;margin:auto;padding:22px}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:18px}.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:0 3px 14px rgba(20,45,75,.05)}
+.kpi-label{font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:700}.kpi-value{font-size:28px;font-weight:800;margin-top:8px;color:var(--navy)}
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}.filters .select{min-width:150px}.search{min-width:230px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}.chart-card{height:340px}.chart-card h3{margin:0 0 12px;font-size:16px}.chart-wrap{height:275px}
+.table-card{padding:0;overflow:hidden}.table-head{padding:18px;display:flex;justify-content:space-between;align-items:center;gap:10px}.table-scroll{overflow:auto;max-height:570px}
+table{width:100%;border-collapse:collapse;font-size:13px}th{position:sticky;top:0;background:#edf3f9;color:#30465b;text-align:left;padding:12px;border-bottom:1px solid var(--border);white-space:nowrap}td{padding:12px;border-bottom:1px solid var(--border);white-space:nowrap}tr:hover{background:#f8fbfe}.badge{padding:5px 9px;border-radius:999px;font-size:11px;font-weight:700}.done{background:#dff5e8;color:#13733d}.progress{background:#e2efff;color:#145b98}.delay{background:#fff0db;color:#9b5a0c}.critical{background:#fde3e3;color:#a32222}.notstart{background:#edf0f3;color:#5c6670}
+.progressbar{height:8px;background:#e9eef3;border-radius:20px;overflow:hidden;min-width:100px}.progressbar span{display:block;height:100%;background:var(--blue)}
+.footerbar{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;color:var(--muted);font-size:13px}.pager{display:flex;gap:7px}.pager button{padding:7px 11px}
+.empty{text-align:center;padding:45px;color:var(--muted)}
+.modal{display:none;position:fixed;inset:0;background:rgba(10,25,45,.48);align-items:center;justify-content:center;padding:20px;z-index:10}.modal.show{display:flex}.modal-box{background:#fff;border-radius:16px;max-width:720px;width:100%;max-height:85vh;overflow:auto;padding:24px}.modal-head{display:flex;justify-content:space-between}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.detail{background:#f7f9fb;padding:12px;border-radius:9px}.detail small{display:block;color:var(--muted);margin-bottom:4px}
+@media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:700px){.header{align-items:flex-start;flex-direction:column}.kpis{grid-template-columns:1fr 1fr}.grid2{grid-template-columns:1fr}.detail-grid{grid-template-columns:1fr}.container{padding:12px}}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="title">
+    <h1>Dashboard Pengurusan Pelan</h1>
+    <p>Paparan Prestasi, Kemajuan dan Status Pelaksanaan</p>
+  </div>
+  <div class="actions">
+    <span id="lastUpdated">Belum dimuatkan</span>
+    <button onclick="loadData()">↻ Refresh Data</button>
+  </div>
+</header>
+
+<main class="container">
+  <section class="kpis">
+    <div class="card"><div class="kpi-label">Total Pelan</div><div class="kpi-value" id="kTotal">0</div></div>
+    <div class="card"><div class="kpi-label">Total Projek</div><div class="kpi-value" id="kProject">0</div></div>
+    <div class="card"><div class="kpi-label">Dalam Pelaksanaan</div><div class="kpi-value" id="kProgress">0</div></div>
+    <div class="card"><div class="kpi-label">Telah Selesai</div><div class="kpi-value" id="kDone">0</div></div>
+    <div class="card"><div class="kpi-label">Tertunda</div><div class="kpi-value" id="kDelay">0</div></div>
+    <div class="card"><div class="kpi-label">Purata Kemajuan</div><div class="kpi-value" id="kAvg">0%</div></div>
+  </section>
+
+  <section class="filters">
+    <select id="fYear" class="select" onchange="render()"><option value="">Semua Tahun</option></select>
+    <select id="fCategory" class="select" onchange="render()"><option value="">Semua Kategori</option></select>
+    <select id="fDistrict" class="select" onchange="render()"><option value="">Semua Daerah</option></select>
+    <select id="fStatus" class="select" onchange="render()"><option value="">Semua Status</option></select>
+    <select id="fAgency" class="select" onchange="render()"><option value="">Semua Agensi/Jabatan</option></select>
+    <input id="search" class="search" placeholder="🔎 Cari pelan..." oninput="render()">
+    <button onclick="resetFilters()">Reset Filter</button>
+    <button onclick="exportCSV()">Export CSV</button>
+    <button onclick="window.print()">Print</button>
+  </section>
+
+  <section class="grid2">
+    <div class="card chart-card"><h3>Status Pelaksanaan</h3><div class="chart-wrap"><canvas id="statusChart"></canvas></div></div>
+    <div class="card chart-card"><h3>Prestasi Mengikut Tahun</h3><div class="chart-wrap"><canvas id="yearChart"></canvas></div></div>
+    <div class="card chart-card"><h3>Kemajuan Mengikut Kategori</h3><div class="chart-wrap"><canvas id="categoryChart"></canvas></div></div>
+    <div class="card chart-card"><h3>Prestasi Mengikut Daerah</h3><div class="chart-wrap"><canvas id="districtChart"></canvas></div></div>
+  </section>
+
+  <section class="card table-card">
+    <div class="table-head">
+      <div><strong>Jadual Pelan</strong><div id="recordInfo" style="font-size:12px;color:#718096;margin-top:4px"></div></div>
+    </div>
+    <div class="table-scroll">
+      <table><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+    </div>
+    <div class="footerbar"><span id="pageInfo"></span><div class="pager"><button onclick="prevPage()">‹</button><button onclick="nextPage()">›</button></div></div>
+  </section>
+</main>
+
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()">
+ <div class="modal-box"><div class="modal-head"><h2 id="modalTitle">Maklumat Pelan</h2><button onclick="closeModal()">✕</button></div><div class="detail-grid" id="detailGrid"></div></div>
+</div>
+
+<script>
+// ==============================
+// KONFIGURASI GOOGLE SHEETS
+// ==============================
+// Spreadsheet ID daripada link anda:
+const SPREADSHEET_ID = "1KS1Gyx_HBguKjL7dazxYq8bRLp2cTcJLkMakNZ1Bsd4";
+
+// Jika mahu terus membaca Google Sheet melalui CSV, isi nama tab di sini.
+// Contoh: "Sheet1". Jika kosong, cuba tab pertama.
+const SHEET_NAME = "";
+
+// Jika Google Sheet tidak boleh dibaca kerana permission, gunakan
+// Publish to web > CSV atau masukkan URL CSV di bawah.
+const CSV_URL = SHEET_NAME
+  ? `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`
+  : `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv`;
+
+let rawData=[], filteredData=[], page=1, pageSize=20;
+let charts={};
+
+const aliases={
+ year:["tahun","year"],
+ category:["kategori","category","jenis kategori"],
+ district:["daerah","district"],
+ status:["status"],
+ agency:["agensi","jabatan","agency","department"],
+ progress:["kemajuan","progress","% kemajuan","peratus kemajuan"],
+ plan:["nama pelan","pelan","nama projek","projek","plan","project"]
+};
+
+function norm(s){return String(s??"").trim().toLowerCase().replace(/\s+/g," ")}
+function findKey(obj, names){let keys=Object.keys(obj);for(const n of names){let k=keys.find(x=>norm(x)===norm(n));if(k)return k}return null}
+function getField(row,type){let k=findKey(row,aliases[type]||[]);return k?row[k]:""}
+function statusClass(s){s=norm(s);if(s.includes("selesai"))return"done";if(s.includes("tunda"))return"delay";if(s.includes("kritikal"))return"critical";if(s.includes("belum"))return"notstart";return"progress"}
+function pct(v){let n=parseFloat(String(v).replace("%","").replace(",","."));return isNaN(n)?null:Math.max(0,Math.min(100,n))}
+function unique(type){return [...new Set(rawData.map(r=>getField(r,type)).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'ms',{numeric:true}))}
+
+async function loadData(){
+ document.getElementById("lastUpdated").textContent="Memuatkan...";
+ try{
+   const res=await fetch(CSV_URL,{cache:"no-store"});
+   if(!res.ok) throw new Error("Google Sheet tidak dapat dicapai");
+   const text=await res.text();
+   rawData=parseCSV(text);
+   populateFilters();
+   render();
+   document.getElementById("lastUpdated").textContent="Dikemaskini "+new Date().toLocaleString("ms-MY");
+ }catch(e){
+   document.getElementById("lastUpdated").textContent="Gagal dimuatkan";
+   document.getElementById("tbody").innerHTML=`<tr><td colspan="20"><div class="empty">Data tidak dapat dimuatkan.<br><small>${e.message}<br>Pastikan Google Sheet boleh diakses dan nama tab/permission adalah betul.</small></div></td></tr>`;
+ }
+}
+function parseCSV(text){
+ const rows=[];let row=[],cell="",q=false;
+ for(let i=0;i<text.length;i++){let c=text[i],n=text[i+1];
+  if(c==='"'&&q&&n==='"'){cell+='"';i++;continue}
+  if(c==='"'){q=!q;continue}
+  if(c===','&&!q){row.push(cell);cell="";continue}
+  if((c==='\n'||c==='\r')&&!q){if(c==='\r'&&n==='\n')i++;row.push(cell);cell="";if(row.some(x=>x.trim()!==""))rows.push(row);row=[];continue}
+  cell+=c;
+ }
+ if(cell||row.length){row.push(cell);rows.push(row)}
+ if(!rows.length)return[];
+ const headers=rows.shift().map((h,i)=>h.trim()||`Column ${i+1}`);
+ return rows.map(r=>Object.fromEntries(headers.map((h,i)=>[h,(r[i]??"").trim()])));
+}
+function setOptions(id,vals,first){
+ const el=document.getElementById(id), old=el.value;
+ el.innerHTML=`<option value="">${first}</option>`+vals.map(v=>`<option value="${String(v).replaceAll('"','&quot;')}">${v}</option>`).join("");
+ if(vals.includes(old))el.value=old;
+}
+function populateFilters(){
+ setOptions("fYear",unique("year"),"Semua Tahun");
+ setOptions("fCategory",unique("category"),"Semua Kategori");
+ setOptions("fDistrict",unique("district"),"Semua Daerah");
+ setOptions("fStatus",unique("status"),"Semua Status");
+ setOptions("fAgency",unique("agency"),"Semua Agensi/Jabatan");
+}
+function render(){
+ const year=fYear.value,cat=fCategory.value,dist=fDistrict.value,stat=fStatus.value,agency=fAgency.value,search=norm(document.getElementById("search").value);
+ filteredData=rawData.filter(r=>{
+  const hay=norm(Object.values(r).join(" "));
+  return (!year||getField(r,"year")===year)&&(!cat||getField(r,"category")===cat)&&(!dist||getField(r,"district")===dist)&&(!stat||getField(r,"status")===stat)&&(!agency||getField(r,"agency")===agency)&&(!search||hay.includes(search));
+ });
+ page=1;updateKPI();updateCharts();updateTable();
+}
+function updateKPI(){
+ const total=filteredData.length;
+ const done=filteredData.filter(r=>norm(getField(r,"status")).includes("selesai")).length;
+ const prog=filteredData.filter(r=>{let s=norm(getField(r,"status"));return s.includes("pelaksanaan")||s.includes("progres")||s.includes("progress")}).length;
+ const delay=filteredData.filter(r=>norm(getField(r,"status")).includes("tunda")).length;
+ const ps=filteredData.map(r=>pct(getField(r,"progress"))).filter(v=>v!==null);
+ document.getElementById("kTotal").textContent=total;
+ document.getElementById("kProject").textContent=total;
+ document.getElementById("kProgress").textContent=prog;
+ document.getElementById("kDone").textContent=done;
+ document.getElementById("kDelay").textContent=delay;
+ document.getElementById("kAvg").textContent=(ps.length?Math.round(ps.reduce((a,b)=>a+b,0)/ps.length):0)+"%";
+}
+function makeChart(id,type,labels,data){
+ if(charts[id])charts[id].destroy();
+ charts[id]=new Chart(document.getElementById(id),{type,data:{labels,datasets:[{data,label:"Bilangan",borderWidth:1,backgroundColor:["#1769aa","#18864b","#e98b20","#c93636","#718096","#6f42c1","#159a9c"]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:type==="doughnut",position:"bottom"}},scales:type==="doughnut"?{}:{y:{beginAtZero:true,ticks:{precision:0}}},onClick:(evt,els)=>{if(!els.length)return;let label=labels[els[0].index]; if(id==="statusChart"){fStatus.value=label}else if(id==="yearChart"){fYear.value=label}else if(id==="categoryChart"){fCategory.value=label}else if(id==="districtChart"){fDistrict.value=label} render();}}});
+}
+function countBy(type){
+ const m={};filteredData.forEach(r=>{let v=getField(r,type)||"Tidak dinyatakan";m[v]=(m[v]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,12)
+}
+function updateCharts(){
+ let st=countBy("status");makeChart("statusChart","doughnut",st.map(x=>x[0]),st.map(x=>x[1]));
+ let yr=countBy("year");makeChart("yearChart","bar",yr.map(x=>x[0]),yr.map(x=>x[1]));
+ let ca=countBy("category");makeChart("categoryChart","bar",ca.map(x=>x[0]),ca.map(x=>x[1]));
+ let di=countBy("district");makeChart("districtChart","bar",di.map(x=>x[0]),di.map(x=>x[1]));
+}
+function updateTable(){
+ const keys=rawData.length?Object.keys(rawData[0]):[];
+ document.getElementById("thead").innerHTML="<tr>"+keys.map(k=>`<th>${k}</th>`).join("")+"</tr>";
+ const start=(page-1)*pageSize, rows=filteredData.slice(start,start+pageSize);
+ document.getElementById("tbody").innerHTML=rows.length?rows.map((r,i)=>"<tr onclick='openDetail("+ (start+i) +")'>"+keys.map(k=>{
+   let v=r[k];
+   if(norm(k).includes("status"))v=`<span class="badge ${statusClass(v)}">${v}</span>`;
+   else if(aliases.progress.includes(norm(k))||norm(k).includes("kemajuan")){let p=pct(v);v=p===null?v:`<div style="display:flex;align-items:center;gap:8px"><div class="progressbar"><span style="width:${p}%"></span></div><small>${p}%</small></div>`}
+   return `<td>${v}</td>`;
+ }).join("")+"</tr>").join(""):`<tr><td colspan="${Math.max(keys.length,1)}"><div class="empty">Tiada rekod ditemui untuk pilihan filter ini.</div></td></tr>`;
+ document.getElementById("recordInfo").textContent=`${filteredData.length} rekod ditemui`;
+ document.getElementById("pageInfo").textContent=filteredData.length?`Paparan ${start+1}–${Math.min(start+pageSize,filteredData.length)} daripada ${filteredData.length}`:"0 rekod";
+}
+function prevPage(){if(page>1){page--;updateTable()}}
+function nextPage(){if(page*pageSize<filteredData.length){page++;updateTable()}}
+function resetFilters(){["fYear","fCategory","fDistrict","fStatus","fAgency"].forEach(id=>document.getElementById(id).value="");document.getElementById("search").value="";render()}
+function openDetail(index){const r=filteredData[index],g=document.getElementById("detailGrid");document.getElementById("modalTitle").textContent=getField(r,"plan")||"Maklumat Pelan";g.innerHTML=Object.entries(r).map(([k,v])=>`<div class="detail"><small>${k}</small><strong>${v||"—"}</strong></div>`).join("");document.getElementById("modal").classList.add("show")}
+function closeModal(){document.getElementById("modal").classList.remove("show")}
+function exportCSV(){
+ const keys=rawData.length?Object.keys(rawData[0]):[];const lines=[keys.join(",")];
+ filteredData.forEach(r=>lines.push(keys.map(k=>`"${String(r[k]??"").replaceAll('"','""')}"`).join(",")));
+ const blob=new Blob(["\ufeff"+lines.join("\n")],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="dashboard-data.csv";a.click();URL.revokeObjectURL(a.href)
+}
+loadData();
+</script>
+</body>
+</html>
